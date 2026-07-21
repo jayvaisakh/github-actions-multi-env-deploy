@@ -1,0 +1,66 @@
+name: Deploy to Staging and Production
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+
+    environment:
+      name: staging
+      url: http://172.198.160.118
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy application to staging
+        run: |
+          scp app/index.html \
+            "${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/index.html"
+
+      - name: Verify staging deployment
+        run: |
+          curl --fail --retry 5 "http://${{ secrets.HOST }}"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+
+    environment:
+      name: production
+      url: http://172.198.136.91
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy application to production
+        run: |
+          scp app/index.html \
+            "${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/index.html"
+
+      - name: Verify production deployment
+        run: |
+          curl --fail --retry 5 "http://${{ secrets.HOST }}"
